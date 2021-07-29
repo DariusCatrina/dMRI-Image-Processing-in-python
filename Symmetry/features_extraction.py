@@ -6,7 +6,6 @@ The script runs by default on HCP842 Atlas, but can be change when running it in
 
 Author: Darius Catrina
 '''
-
 import os
 
 from dipy.io.streamline import load_trk         
