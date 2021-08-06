@@ -13,27 +13,63 @@ from dipy.viz import actor, window, colormap
 from dipy.io.image import load_nifti            
 from dipy.tracking.streamline import transform_streamlines, set_number_of_points
 from dipy.tracking.utils import length   
-from dipy.segment.bundles import bundle_shape_similarity      
+from dipy.segment.bundles import bundle_shape_similarity
+
+import nibabel as nib
+import nibabel.processing
+from nibabel.streamlines import Field
+from nibabel.orientations import aff2axcodes
+
+from dipy.core.gradients import gradient_table
+from dipy.reconst.shm import CsaOdfModel
+from dipy.data import default_sphere
+from dipy.direction import peaks_from_model
+from dipy.tracking import utils
+from dipy.tracking.stopping_criterion import ThresholdStoppingCriterion
+from dipy.tracking.local_tracking import LocalTracking
+from dipy.tracking.streamline import Streamlines
+from dipy.io.streamline import save_tractogram
+
 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import numpy as np
 
-def load_nifti_format(file_name):
+def load_nifti_format(file_name, directory, return_voxsize=False, downsample=False, dims=4) -> tuple:
     """
     Parameters
     --------
-    file_name: Name of the file of the NIFTI file read
+    file_name: string, Name of the file of the NIFTI file read
+    directory: string, Name of the drectory where the image is saved
+    return_voxsize: bool
 
     Returns
     --------
     data: Data stored in the NIFTI file as an numpy array
     affine: Affine of the data
+    vox_size: Voxel size of the image
     """
-    data_file = os.path.abspath(os.path.join("",'DATA/')) #Directory where the nifti file is stored
+    data_file = os.path.abspath(os.path.join("",f'{directory}/')) #Directory where the nifti file is stored
     bundle_file_name = os.path.join(data_file, file_name)
 
-    return load_nifti(bundle_file_name)
+    img = nib.load(bundle_file_name)
+    affine = img.affine
+
+    if downsample and dims==4:
+        data = img.slicer[::2,::2,::2, :]
+        data = np.asanyarray(data.dataobj)
+    elif downsample and dims==3:
+        data = img.slicer[::2,::2,::2]
+        data = np.asanyarray(data.dataobj)
+    else:
+        data = np.asanyarray(img.dataobj)
+
+
+    if return_voxsize:
+        vox_size = img.header.get_zooms()[:3]
+        return [data, affine, vox_size]
+    else:
+        return [data, affine]
 
 def load_bundle(bundle_name, fa_affine, transfrom=True):
     """
@@ -91,7 +127,7 @@ def get_fa_along_streamlines(bundle_l, bundle_r, fa):
     
     return fa_streamlines_r, fa_streamlines_l
 
-def plot_fa_along_streamlines(fa_streamlines_r, fa_streamlines_l):
+def plot_fa_along_streamlines(fa_streamlines_r, fa_streamlines_l, BUNDLE_NAME,points_r, points_l):
     """
     Plots the FA values along 2 bundles
     """
@@ -109,7 +145,7 @@ def plot_fa_along_streamlines(fa_streamlines_r, fa_streamlines_l):
     plt.title(f'FA mean projection along left and right streamlines, bundle {BUNDLE_NAME}')
     plt.show()
 
-def plot_histogram(fa_streamlines_r, fa_streamlines_l):
+def plot_histogram(fa_streamlines_r, fa_streamlines_l, BUNDLE_NAME):
     """
     Plots the histogram of the FA along two bundles with 100 streamlines approximation
     """
@@ -125,7 +161,7 @@ def plot_histogram(fa_streamlines_r, fa_streamlines_l):
     plt.title(f'FA histogram along left and right streamlines, bundle {BUNDLE_NAME}')
     plt.show() 
 
-def length_plotting(bundle_l, bundle_r):
+def length_plotting(bundle_l, bundle_r, BUNDLE_NAME):
     """
     Length projection of the left and right streamlines
     """
@@ -143,7 +179,7 @@ def length_plotting(bundle_l, bundle_r):
     plt.title(f'Length projection of the streamlines from the {BUNDLE_NAME} bundle')
     plt.show()
 
-def get_shape_similarity_score():
+def get_shape_similarity_score(BUNDLE_NAME, fa_affine):
     """
     Calculates the shape similarity score between left and right bundle
 
@@ -176,29 +212,20 @@ def approximate(array):
 
     return np.array(new_array)
 
-
 def vizualization(bundle_r, bundle_l):
     scene = window.Scene()
-    right_actor = actor.line(bundle_r,(115, 181, 4))
-    left_actor = actor.line(bundle_l,(128, 0, 128))
-
-    scene.add(left_actor)
-    scene.add(right_actor)
+    if bundle_r:
+        right_actor = actor.line(bundle_r,colormap.line_colors(bundle_r), opacity=0.5)
+        scene.add(right_actor)
+    if bundle_l:
+        left_actor = actor.line(bundle_l,(128, 0, 128), opacity=0.5)
+        scene.add(left_actor)
 
     window.show(scene)
 
-if __name__ == '__main__':
-
-    from argparse import ArgumentParser
-    parser = ArgumentParser()
-
-    parser.add_argument('--bundle', type=str, default='AST')
-    parser.add_argument('--gfa', type=str, default='HCP842_gfa.nii')
-
-    args = parser.parse_args()
-
-    BUNDLE_NAME = args.bundle_name
-    fa, fa_affine = load_nifti_format(args.gfa_file)
+def use_HCP(bundle_name, gfa_file):
+    BUNDLE_NAME = bundle_name
+    fa, fa_affine = load_nifti_format(gfa_file)
     bundle_L, bundle_R = load_bundle(BUNDLE_NAME + '_L.trk', fa_affine), load_bundle(BUNDLE_NAME + '_R.trk', fa_affine)
 
     points_l = np.linspace(0, len(bundle_L), num=100)
@@ -206,7 +233,7 @@ if __name__ == '__main__':
     fa_streamlines_r, fa_streamlines_l = get_fa_along_streamlines(bundle_L, bundle_R, fa)
 
 
-    similarity_score = get_shape_similarity_score()
+    similarity_score = get_shape_similarity_score(BUNDLE_NAME, fa_affine)
     right_length, left_length = np.sum(list(length(bundle_L))), np.sum(list(length(bundle_R)))
 
     print(f'\n\n\t\tSymmetry related features extracted, bundle {args.bundle_name}')
@@ -216,9 +243,71 @@ if __name__ == '__main__':
     print('\n\n')
 
                 #PLOTTING
-    plot_fa_along_streamlines(fa_streamlines_r, fa_streamlines_l)
-    plot_histogram(fa_streamlines_r, fa_streamlines_l)
-    length_plotting(bundle_L, bundle_R)
+    plot_fa_along_streamlines(fa_streamlines_r, fa_streamlines_l, BUNDLE_NAME, points_r, points_l)
+    plot_histogram(fa_streamlines_r, fa_streamlines_l, BUNDLE_NAME)
+    length_plotting(bundle_L, bundle_R, BUNDLE_NAME)
 
     #             #VIZUALIZATION
     vizualization(bundle_L, bundle_R)
+
+def load_subject(subject_index, viz=False):
+    print('Loading and downsalping the data...')
+    file_name = f'{subject_index}_nii4D_RAS.nii.gz'
+    data, affine, vox_size = load_nifti_format(file_name, 'SUBJECTS', return_voxsize=True, downsample=True)
+    binary_mask, _ = load_nifti_format(f'{subject_index}_dwi_binary_mask.nii.gz', 'SUBJECTS', downsample=True, dims=3)
+    lables, _ = load_nifti_format(f'{subject_index}_chass_symmetric3_labels_RAS_lr_ordered.nii.gz', 'SUBJECTS', downsample=True, dims=3)
+    bvals, bvects = np.loadtxt(f'SUBJECTS/{subject_index}_bvals_fix.txt'), np.loadtxt(f'SUBJECTS/{subject_index}_bvec_fix.txt')
+
+    mask = lables == 121
+
+    grad_tab = gradient_table(bvals, bvects)
+    print('Building the CSA model')
+    csa_model = CsaOdfModel(grad_tab, sh_order=6)
+    print('Extracting the peaks')
+    csa_peaks = peaks_from_model(csa_model, data, default_sphere,
+                             relative_peak_threshold=.5,
+                             min_separation_angle=25,
+                             mask=mask)
+    fa = csa_peaks.gfa
+    # plt.imshow(fa[:,:,fa.shape[-1] // 2], cmap='gray')
+    # plt.show()
+    stopping_criterion = ThresholdStoppingCriterion(csa_peaks.gfa, .25) 
+    seeds = utils.seeds_from_mask(binary_mask, affine, density=1)
+    print('Generating the streamlines')
+    streamline_generator = LocalTracking(csa_peaks, stopping_criterion, seeds,
+                                     affine=affine, step_size=0.1) # 2
+    all_streamlines = Streamlines(streamline_generator)
+
+    stramlines = []
+    ratio = 5
+    for indx, streamline in enumerate(all_streamlines):
+        if indx % ratio == 0:
+            stramlines.append(streamline)
+    if viz:
+        vizualization(stramlines, None)
+
+    return stramlines, fa
+    
+
+if __name__ == '__main__':
+
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+
+    parser.add_argument('--use_subjects', type=str, default='yes') 
+    parser.add_argument('--bundle', type=str, default='AST')
+    parser.add_argument('--gfa', type=str, default='HCP842_gfa.nii')
+
+    args = parser.parse_args()
+
+    if args.use_subjects == 'no': 
+        use_HCP(args.bundle, args.gfa)
+
+    else:
+        stramlines, fa = load_subject('N57709', viz=True)
+
+        
+
+
+
+
