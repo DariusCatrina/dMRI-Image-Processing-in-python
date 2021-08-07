@@ -17,8 +17,6 @@ from dipy.segment.bundles import bundle_shape_similarity
 
 import nibabel as nib
 import nibabel.processing
-from nibabel.streamlines import Field
-from nibabel.orientations import aff2axcodes
 
 from dipy.core.gradients import gradient_table
 from dipy.reconst.shm import CsaOdfModel
@@ -29,47 +27,36 @@ from dipy.tracking.stopping_criterion import ThresholdStoppingCriterion
 from dipy.tracking.local_tracking import LocalTracking
 from dipy.tracking.streamline import Streamlines
 from dipy.io.streamline import save_tractogram
+from dipy.align.reslice import reslice
 
 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import numpy as np
 
-def load_nifti_format(file_name, directory, return_voxsize=False, downsample=False, dims=4) -> tuple:
+def load_nifti_format(file_name, directory, downsample=False) -> tuple:
     """
     Parameters
     --------
     file_name: string, Name of the file of the NIFTI file read
     directory: string, Name of the drectory where the image is saved
-    return_voxsize: bool
+    downsample: bool
 
     Returns
     --------
     data: Data stored in the NIFTI file as an numpy array
     affine: Affine of the data
-    vox_size: Voxel size of the image
     """
     data_file = os.path.abspath(os.path.join("",f'{directory}/')) #Directory where the nifti file is stored
     bundle_file_name = os.path.join(data_file, file_name)
 
-    img = nib.load(bundle_file_name)
-    affine = img.affine
-
-    if downsample and dims==4:
-        data = img.slicer[::2,::2,::2, :]
-        data = np.asanyarray(data.dataobj)
-    elif downsample and dims==3:
-        data = img.slicer[::2,::2,::2]
-        data = np.asanyarray(data.dataobj)
-    else:
-        data = np.asanyarray(img.dataobj)
-
-
-    if return_voxsize:
-        vox_size = img.header.get_zooms()[:3]
-        return [data, affine, vox_size]
-    else:
+    if downsample:
+        imgs, affine0, vox_size = load_nifti(bundle_file_name, return_voxsize=True)
+        new_vox_size = [dim *2 for dim in vox_size]
+        data, affine = reslice(imgs, affine0, vox_size, new_vox_size, order=1)
         return [data, affine]
+    else:
+        return  load_nifti(bundle_file_name)
 
 def load_bundle(bundle_name, fa_affine, transfrom=True):
     """
@@ -253,12 +240,12 @@ def use_HCP(bundle_name, gfa_file):
 def load_subject(subject_index, viz=False):
     print('Loading and downsalping the data...')
     file_name = f'{subject_index}_nii4D_RAS.nii.gz'
-    data, affine, vox_size = load_nifti_format(file_name, 'SUBJECTS', return_voxsize=True, downsample=True)
-    binary_mask, _ = load_nifti_format(f'{subject_index}_dwi_binary_mask.nii.gz', 'SUBJECTS', downsample=True, dims=3)
-    lables, _ = load_nifti_format(f'{subject_index}_chass_symmetric3_labels_RAS_lr_ordered.nii.gz', 'SUBJECTS', downsample=True, dims=3)
+    data, affine = load_nifti_format(file_name, 'SUBJECTS', downsample=True)
+    binary_mask, _ = load_nifti_format(f'{subject_index}_dwi_binary_mask.nii.gz', 'SUBJECTS', downsample=True)
+    lables, _ = load_nifti_format(f'{subject_index}_chass_symmetric3_labels_RAS_lr_ordered.nii.gz', 'SUBJECTS', downsample=True)
     bvals, bvects = np.loadtxt(f'SUBJECTS/{subject_index}_bvals_fix.txt'), np.loadtxt(f'SUBJECTS/{subject_index}_bvec_fix.txt')
 
-    mask = lables == 121
+    mask = lables == 51
 
     grad_tab = gradient_table(bvals, bvects)
     print('Building the CSA model')
@@ -275,7 +262,7 @@ def load_subject(subject_index, viz=False):
     seeds = utils.seeds_from_mask(binary_mask, affine, density=1)
     print('Generating the streamlines')
     streamline_generator = LocalTracking(csa_peaks, stopping_criterion, seeds,
-                                     affine=affine, step_size=0.1) # 2
+                                     affine=affine, step_size=0.1)
     all_streamlines = Streamlines(streamline_generator)
 
     stramlines = []
