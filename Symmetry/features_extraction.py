@@ -16,9 +16,6 @@ from dipy.tracking.utils import length
 from dipy.segment.bundles import bundle_shape_similarity
 
 import nibabel as nib
-import nibabel.processing
-
-from dipy.core.gradients import reorient_bvecs
 
 from dipy.core.gradients import gradient_table
 from dipy.reconst.shm import CsaOdfModel
