@@ -18,6 +18,8 @@ from dipy.segment.bundles import bundle_shape_similarity
 import nibabel as nib
 import nibabel.processing
 
+from dipy.core.gradients import reorient_bvecs
+
 from dipy.core.gradients import gradient_table
 from dipy.reconst.shm import CsaOdfModel
 from dipy.data import default_sphere
@@ -132,21 +134,24 @@ def plot_fa_along_streamlines(fa_streamlines_r, fa_streamlines_l, BUNDLE_NAME,po
     plt.title(f'FA mean projection along left and right streamlines, bundle {BUNDLE_NAME}')
     plt.show()
 
-def plot_histogram(fa_streamlines_r, fa_streamlines_l, BUNDLE_NAME):
+def plot_histogram(fa_streamlines_r, fa_streamlines_l, BUNDLE_NAME, viz=True):
     """
     Plots the histogram of the FA along two bundles with 100 streamlines approximation
     """
     fa_histogram_r = approximate(np.mean(fa_streamlines_r, axis=1))
     fa_histogram_l = approximate(np.mean(fa_streamlines_l, axis=1))
-    
-    plt.bar(np.arange(len(fa_histogram_l)),fa_histogram_l, align='edge', width=1.0, color='#800080',alpha=0.5)
-    plt.bar(np.arange(len(fa_histogram_r)),fa_histogram_r, align='edge', width=1.0, color='#73b504',alpha=0.5)
+    if viz:
+        plt.bar(np.arange(len(fa_histogram_l)),fa_histogram_l, align='edge', width=1.0, color='#800080',alpha=0.5)
+        plt.bar(np.arange(len(fa_histogram_r)),fa_histogram_r, align='edge', width=1.0, color='#73b504',alpha=0.5)
 
-    legend_elements = [Line2D([0], [0], color='#73b504', lw=4, label='Right streamline'),
-                        Line2D([0], [0], color='#800080', lw=4, label='Left streamline')]
-    plt.legend(handles=legend_elements, loc='upper right')
-    plt.title(f'FA histogram along left and right streamlines, bundle {BUNDLE_NAME}')
-    plt.show() 
+        legend_elements = [Line2D([0], [0], color='#73b504', lw=4, label='Right streamline'),
+                            Line2D([0], [0], color='#800080', lw=4, label='Left streamline')]
+        plt.legend(handles=legend_elements, loc='upper right')
+        plt.title(f'FA histogram along left and right streamlines, bundle {BUNDLE_NAME}')
+
+        plt.show()
+    else:
+        return fa_histogram_r,fa_histogram_l
 
 def length_plotting(bundle_l, bundle_r, BUNDLE_NAME):
     """
@@ -199,7 +204,7 @@ def approximate(array):
 
     return np.array(new_array)
 
-def vizualization(bundle_r, bundle_l):
+def vizualization(bundle_r, bundle_l, labels, affine):
     scene = window.Scene()
     if bundle_r:
         right_actor = actor.line(bundle_r,colormap.line_colors(bundle_r), opacity=0.5)
@@ -207,7 +212,11 @@ def vizualization(bundle_r, bundle_l):
     if bundle_l:
         left_actor = actor.line(bundle_l,(128, 0, 128), opacity=0.5)
         scene.add(left_actor)
-
+    surface_opacity = 0.9
+    surface_color = [1, 1, 0]
+    seedroi_actor = actor.contour_from_roi(labels, affine,
+                                       surface_color, surface_opacity)
+    scene.add(seedroi_actor)
     window.show(scene)
 
 def use_HCP(bundle_name, gfa_file):
@@ -237,24 +246,30 @@ def use_HCP(bundle_name, gfa_file):
     #             #VIZUALIZATION
     vizualization(bundle_L, bundle_R)
 
-def load_subject(subject_index, viz=False):
+def load_subject(subject_index, viz=True):
     print('Loading and downsalping the data...')
     file_name = f'{subject_index}_nii4D_RAS.nii.gz'
     data, affine = load_nifti_format(file_name, 'SUBJECTS', downsample=True)
     binary_mask, _ = load_nifti_format(f'{subject_index}_dwi_binary_mask.nii.gz', 'SUBJECTS', downsample=True)
     lables, _ = load_nifti_format(f'{subject_index}_chass_symmetric3_labels_RAS_lr_ordered.nii.gz', 'SUBJECTS', downsample=True)
-    bvals, bvects = np.loadtxt(f'SUBJECTS/{subject_index}_bvals_fix.txt'), np.loadtxt(f'SUBJECTS/{subject_index}_bvec_fix.txt')
+    bvals, bvecs = np.loadtxt(f'SUBJECTS/{subject_index}_bvals_fix.txt'), np.loadtxt(f'SUBJECTS/{subject_index}_bvec_fix.txt')
+    bvec_orient = [-2,1,3]
+    bvec_sign = bvec_orient/np.abs(bvec_orient)
+    bvecs = np.c_[bvec_sign[0]*bvecs[:, np.abs(bvec_orient[0])-1], bvec_sign[1]*bvecs[:, np.abs(bvec_orient[1])-1],
+              bvec_sign[2]*bvecs[:, np.abs(bvec_orient[2])-1]]
 
-    mask = lables == 51
 
-    grad_tab = gradient_table(bvals, bvects)
+    mask = (lables == 51)
+
+    grad_tab = gradient_table(bvals, bvecs)
+
     print('Building the CSA model')
     csa_model = CsaOdfModel(grad_tab, sh_order=6)
     print('Extracting the peaks')
     csa_peaks = peaks_from_model(csa_model, data, default_sphere,
-                             relative_peak_threshold=.5,
+                             relative_peak_threshold=.25,
                              min_separation_angle=25,
-                             mask=mask)
+                             mask=binary_mask)
     fa = csa_peaks.gfa
     # plt.imshow(fa[:,:,fa.shape[-1] // 2], cmap='gray')
     # plt.show()
@@ -264,14 +279,16 @@ def load_subject(subject_index, viz=False):
     streamline_generator = LocalTracking(csa_peaks, stopping_criterion, seeds,
                                      affine=affine, step_size=0.1)
     all_streamlines = Streamlines(streamline_generator)
-
     stramlines = []
-    ratio = 5
+    ratio = 10
+    
     for indx, streamline in enumerate(all_streamlines):
         if indx % ratio == 0:
             stramlines.append(streamline)
+    print('Extracting targeted streamlines')
+    target_streamlines =  Streamlines(utils.target(stramlines, affine, mask))
     if viz:
-        vizualization(stramlines, None)
+        vizualization(target_streamlines, None, mask, affine)
 
     return stramlines, fa
     
