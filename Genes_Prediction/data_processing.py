@@ -1,7 +1,7 @@
 # Data retrieval/loading from:
 #       [x] files
 #       [] drive 
-# [] FA extraction
+# [x] FA extraction
 # Data augemntation:
 #       [] X,Y,Z rotation
 #       [] Minimum size reduction
