@@ -14,6 +14,7 @@
 import os
 import numpy as np
 from matplotlib import pyplot as plt
+import pandas as pd
 
 from dipy.io.image import load_nifti
 from dipy.align.reslice import reslice
@@ -110,5 +111,37 @@ class Dataset(NiftiProccesing):
 
 
 
-dataset = Dataset()
-dataset.display(0)
+# dataset = Dataset()
+# dataset.display(0)
+
+def genotype_extraction():
+    #! wget https://raw.githubusercontent.com/portokalh/skullstrip/master/book_keeping/QCLAB_AD_mice062921.csv
+    df = pd.DataFrame(pd.read_csv('QCLAB_AD_mice062921.csv'))
+    #df = df.dropna(axis="columns", how="any")
+
+    limit = df.shape[0] - 4
+    data_dic = []
+
+    for idx, row in df[['DWI', 'Genotype']].iterrows():
+        if idx >= limit:
+            break
+        name = row['DWI']
+        gene = row['Genotype']
+        if name not in ['Blank','Died', 'NaN'] and gene in ['APOE33', 'APOE22', 'APOE44']:
+            dict_ = {'subject':name, 'genotype': gene}
+            data_dic.append(dict_)
+
+    data = pd.DataFrame(data_dic)
+    data.to_csv('DATA.csv', index=False)
+
+    #pie chart: gene distribution
+    from matplotlib.pyplot import pie, axis, show
+    def f(x):
+        return len(list(x))
+    sums = data.groupby(data["genotype"])['subject'].apply(f)
+    axis('equal')
+    pie(sums, labels=sums.index);
+    show()
+
+
+genotype_extraction()
