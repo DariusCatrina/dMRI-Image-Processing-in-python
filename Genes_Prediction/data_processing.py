@@ -24,12 +24,14 @@ from dipy.segment.mask import median_otsu
 from dipy.direction import peaks_from_model
 from dipy.data import default_sphere
 
+
+
 class NiftiProccesing(object):
     def __init__(self, dir_name, subject_list):
         self.data_file = os.path.abspath(os.path.join("",f'{dir_name}/'))
         self.subject_list = subject_list       
     
-    def load_subjects(self, _types, b=True):
+    def load_subjects(self, _types):
         print('Loading the subjects...')
         # downsampled img shape: (128, 210, 128, 49), affine shape: (4, 4)
         imgs = np.zeros((len(self.subject_list), 128,210,128,49))
@@ -37,7 +39,7 @@ class NiftiProccesing(object):
         masks = np.zeros((len(self.subject_list), 128,210,128))
         grad_tables = np.empty(len(self.subject_list), dtype=object)
 
-
+        #reading the scans, binary masks, bvalues and bvectors for every subject
         for i, subject in enumerate(self.subject_list):
             print(f'\tUploading the {subject} subject')
             subject_fname = os.path.join(self.data_file, subject+_types['scan'])
@@ -79,6 +81,10 @@ class NiftiProccesing(object):
                              mask=mask)
 
         return csa_peaks.gfa
+    
+    def rotate_img(self, img, angles):
+        #Rotate a 3D image volume for data augmentation...
+        pass
 
 
 class Dataset(NiftiProccesing):
@@ -99,6 +105,8 @@ class Dataset(NiftiProccesing):
         _slice = self.gfa_imgs.shape[-1] // 2
         plt.imshow(self.gfa_imgs[index,:,:,_slice].T,cmap='gray')
         plt.show()
+
+
 
 
 
