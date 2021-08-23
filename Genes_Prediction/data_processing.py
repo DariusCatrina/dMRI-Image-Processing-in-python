@@ -111,8 +111,8 @@ class Dataset(NiftiProccesing):
 
 
 
-# dataset = Dataset()
-# dataset.display(0)
+dataset = Dataset()
+dataset.display(0)
 
 def genotype_extraction():
     #! wget https://raw.githubusercontent.com/portokalh/skullstrip/master/book_keeping/QCLAB_AD_mice062921.csv
@@ -139,6 +139,7 @@ def genotype_extraction():
     def f(x):
         return len(list(x))
     sums = data.groupby(data["genotype"])['subject'].apply(f)
+    print(sums)
     axis('equal')
     pie(sums, labels=sums.index);
     show()
