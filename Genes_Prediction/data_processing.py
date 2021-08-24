@@ -3,7 +3,7 @@
 #       [] drive 
 # [x] FA extraction
 # Data augemntation:
-#       [] X,Y,Z rotation
+#       [x] X,Y,Z rotation
 #       [] Minimum size reduction
 #       [] ± Segmentation per Bundle
 # Extra features extraction:
@@ -83,9 +83,12 @@ class NiftiProccesing(object):
 
         return csa_peaks.gfa
     
-    def rotate_img(self, img, angles):
+    def rotate_img(self, img, angle, axes, subject):
         #Rotate a 3D image volume for data augmentation...
-        pass
+        print(f'Rotate the {subject} subject on {axes} axes,(0: X,1:Y,2:Z) with {angle} degrees')
+        from scipy.ndimage.interpolation import rotate
+        
+        return rotate(input=img, angle=angle, axes=axes)
 
 
 class Dataset(NiftiProccesing):
@@ -94,17 +97,42 @@ class Dataset(NiftiProccesing):
         self.types = {'scan' : '_nii4D_RAS.nii.gz', 
                       'binary_mask' : '_dwi_binary_mask.nii.gz', 
                       'lables' : '_chass_symmetric3_labels_RAS_lr_ordered.nii.gz'}
-
-        imgs, affines, masks, grad_tables = self.load_subjects(_types=self.types)
-
+        self.subject_list = subject_list
+        self.imgs, self.affines, self.masks, self.grad_tables = self.load_subjects(_types=self.types)
         self.gfa_imgs = np.zeros((len(subject_list), 128,210,128))
+        self.rot_angle_pass = 360/5
+        self.x_rot_imgs = []#np.zeros((5 * len(subject_list), 239, 239, 128))
+        self.y_rot_imgs = []#np.zeros((5 * len(subject_list), 128, 239, 239))
+        self.z_rot_imgs = []#np.zeros((5 * len(subject_list), 181, 210, 181))
 
-        for i in range(len(subject_list)):
-            self.gfa_imgs[i] = self.fa_extraction(imgs[i], grad_tables[i], masks[i], subject_list[i])
+
+    def apply_augemntation(self):
+        x_rot = (1,0)
+        z_rot = (2,0)
+        y_rot = (2,1)
+
+        for i in range(len(self.subject_list)):
+            self.gfa_imgs[i] = self.fa_extraction(self.imgs[i], self.grad_tables[i], self.masks[i], self.subject_list[i])
+            # 5 X rot, 5 Y rot, 5 Z rot
+            for j in range(0, 4):
+                self.x_rot_imgs.append(self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, x_rot, self.subject_list[i]))
+                self.y_rot_imgs.append(self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, y_rot, self.subject_list[i]))
+                self.z_rot_imgs.append(self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, z_rot, self.subject_list[i]))
+            break
+
+        
 
     def display(self, index):
         _slice = self.gfa_imgs.shape[-1] // 2
-        plt.imshow(self.gfa_imgs[index,:,:,_slice].T,cmap='gray')
+        # y_slice = self.y_rot_imgs[0].shape[0] // 2
+        # z_slice = self.z_rot_imgs[1].shape[0] // 2
+
+        fig, axs = plt.subplots(1,4)
+        axs[0].imshow(self.gfa_imgs[index,:,:,_slice].T,cmap='gray')
+        # axs[1].imshow(self.x_rot_imgs[index,:,:,_slice].T,cmap='gray')
+        # axs[2].imshow(self.y_rot_imgs[index,y_slice,:,:].T,cmap='gray')
+        # axs[3].imshow(self.z_rot_imgs[index,:,z_slice,:].T,cmap='gray')
+
         plt.show()
 
 
@@ -112,6 +140,7 @@ class Dataset(NiftiProccesing):
 
 
 dataset = Dataset()
+dataset.apply_augemntation()
 dataset.display(0)
 
 def genotype_extraction():
@@ -145,4 +174,4 @@ def genotype_extraction():
     show()
 
 
-genotype_extraction()
+# genotype_extraction()
