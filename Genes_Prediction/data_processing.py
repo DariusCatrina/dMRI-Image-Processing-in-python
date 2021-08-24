@@ -92,7 +92,7 @@ class NiftiProccesing(object):
 
 
 class Dataset(NiftiProccesing):
-    def __init__(self, dir_name='TEST_SUBJECT', subject_list = ['N57709']):
+    def __init__(self, augmentation_factor=4 ,dir_name='TEST_SUBJECT', subject_list = ['N57709']):
         NiftiProccesing.__init__(self, dir_name, subject_list)
         self.types = {'scan' : '_nii4D_RAS.nii.gz', 
                       'binary_mask' : '_dwi_binary_mask.nii.gz', 
@@ -100,13 +100,13 @@ class Dataset(NiftiProccesing):
         self.subject_list = subject_list
         self.imgs, self.affines, self.masks, self.grad_tables = self.load_subjects(_types=self.types)
         self.gfa_imgs = np.zeros((len(subject_list), 128,210,128))
-        self.rot_angle_pass = 360/5
-        self.x_rot_imgs = []#np.zeros((5 * len(subject_list), 239, 239, 128))
-        self.y_rot_imgs = []#np.zeros((5 * len(subject_list), 128, 239, 239))
-        self.z_rot_imgs = []#np.zeros((5 * len(subject_list), 181, 210, 181))
+        self.rot_angle_pass = 360/augmentation_factor
+        # Each rotation the image will have different shapes
+        self.x_rot_imgs, self.y_rot_imgs, self.z_rot_imgs = [], [], []
 
 
     def apply_augemntation(self):
+        #rottation axes
         x_rot = (1,0)
         z_rot = (2,0)
         y_rot = (2,1)
@@ -124,14 +124,9 @@ class Dataset(NiftiProccesing):
 
     def display(self, index):
         _slice = self.gfa_imgs.shape[-1] // 2
-        # y_slice = self.y_rot_imgs[0].shape[0] // 2
-        # z_slice = self.z_rot_imgs[1].shape[0] // 2
 
         fig, axs = plt.subplots(1,4)
         axs[0].imshow(self.gfa_imgs[index,:,:,_slice].T,cmap='gray')
-        # axs[1].imshow(self.x_rot_imgs[index,:,:,_slice].T,cmap='gray')
-        # axs[2].imshow(self.y_rot_imgs[index,y_slice,:,:].T,cmap='gray')
-        # axs[3].imshow(self.z_rot_imgs[index,:,z_slice,:].T,cmap='gray')
 
         plt.show()
 
