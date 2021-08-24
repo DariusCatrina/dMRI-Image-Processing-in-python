@@ -113,12 +113,12 @@ class Dataset(NiftiProccesing):
 
         for i in range(len(self.subject_list)):
             self.gfa_imgs[i] = self.fa_extraction(self.imgs[i], self.grad_tables[i], self.masks[i], self.subject_list[i])
-            # 5 X rot, 5 Y rot, 5 Z rot
+            # 4 X rot, 4 Y rot, 4 Z rot
             for j in range(0, 4):
                 self.x_rot_imgs.append(self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, x_rot, self.subject_list[i]))
                 self.y_rot_imgs.append(self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, y_rot, self.subject_list[i]))
                 self.z_rot_imgs.append(self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, z_rot, self.subject_list[i]))
-            break
+
 
         
 
