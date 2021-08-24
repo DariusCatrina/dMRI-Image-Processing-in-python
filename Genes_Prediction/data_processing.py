@@ -85,7 +85,7 @@ class NiftiProccesing(object):
     
     def rotate_img(self, img, angle, axes, subject):
         #Rotate a 3D image volume for data augmentation...
-        print(f'Rotate the {subject} subject on {axes} axes,(0: X,1:Y,2:Z) with {angle} degrees')
+        print(f'\tRotation of the {subject} subject on {axes} axes with {angle} degrees')
         from scipy.ndimage.interpolation import rotate
         
         return rotate(input=img, angle=angle, axes=axes)
@@ -111,6 +111,7 @@ class Dataset(NiftiProccesing):
         z_rot = (2,0)
         y_rot = (2,1)
 
+        print('Data augmentation')
         for i in range(len(self.subject_list)):
             self.gfa_imgs[i] = self.fa_extraction(self.imgs[i], self.grad_tables[i], self.masks[i], self.subject_list[i])
             # 4 X rot, 4 Y rot, 4 Z rot
