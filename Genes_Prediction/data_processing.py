@@ -92,17 +92,19 @@ class NiftiProccesing(object):
 
 
 class Dataset(NiftiProccesing):
-    def __init__(self, augmentation_factor=5 ,dir_name='TEST_SUBJECT', subject_list = ['N57709']):
+    def __init__(self, augmentation_factor=5 ,dir_name='TEST_SUBJECT', subject_list = ['N57709'], load_subjects=True):
         NiftiProccesing.__init__(self, dir_name, subject_list)
         self.types = {'scan' : '_nii4D_RAS.nii.gz', 
                       'binary_mask' : '_dwi_binary_mask.nii.gz', 
                       'lables' : '_chass_symmetric3_labels_RAS_lr_ordered.nii.gz'}
         self.subject_list = subject_list
-        self.imgs, self.affines, self.masks, self.grad_tables = self.load_subjects(_types=self.types)
+        if load_subjects:
+            self.imgs, self.affines, self.masks, self.grad_tables = self.load_subjects(_types=self.types)
         self.gfa_imgs = np.zeros((len(subject_list), 128,210,128))
-        self.rot_angle_pass = 360/augmentation_factor
+        self.augmentation_factor = augmentation_factor
+        self.rot_angle_pass = 360/self.augmentation_factor
         # Each rotation the image will have different shapes
-        self.x_rot_imgs, self.y_rot_imgs, self.z_rot_imgs = [], [], []
+        self.x_rot_imgs, self.y_rot_imgs, self.z_rot_imgs = np.zeros(5*len(subject_list), dtype=object),  np.zeros(5*len(subject_list), dtype=object),  np.zeros(5*len(subject_list), dtype=object)
 
 
     def apply_augemntation(self, save_data=True):
@@ -112,24 +114,29 @@ class Dataset(NiftiProccesing):
         z_rot = (2,0)
         y_rot = (2,1)
 
-        print('Data augmentation')
+        print('Data augmentation...')
         for i in range(len(self.subject_list)):
             self.gfa_imgs[i] = self.fa_extraction(self.imgs[i], self.grad_tables[i], self.masks[i], self.subject_list[i])
             # 4 X rot, 4 Y rot, 4 Z rot
-            for j in range(0, 4):
-                self.x_rot_imgs.append(self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, x_rot, self.subject_list[i]))
-                self.y_rot_imgs.append(self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, y_rot, self.subject_list[i]))
-                self.z_rot_imgs.append(self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, z_rot, self.subject_list[i]))
+            for j in range(0, self.augmentation_factor - 1):
+                self.x_rot_imgs[i+j] = self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, x_rot, self.subject_list[i])
+                self.y_rot_imgs[i+j] = self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, y_rot, self.subject_list[i])
+                self.z_rot_imgs[i+j] = self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, z_rot, self.subject_list[i])
             if save_data:
-                print('Saving/Updateing the data for this epoch')
-                np.save('GFA_IMAGES', self.gfa_imgs)
-                np.save('GFA_X_ROT_IMAGES', self.x_rot_imgs)
-                np.save('GFA_Y_ROT_IMAGES', self.y_rot_imgs)
-                np.save('GFA_Z_ROT_IMAGES', self.z_rot_imgs)
+                print(f'Saving/Updating the data for the {i}th epoch')
+                np.save('BACKUP_DATA/GFA_IMAGES', self.gfa_imgs)
+                np.save('BACKUP_DATA/GFA_X_ROT_IMAGES', self.x_rot_imgs)
+                np.save('BACKUP_DATA/GFA_Y_ROT_IMAGES', self.y_rot_imgs)
+                np.save('BACKUP_DATA/GFA_Z_ROT_IMAGES', self.z_rot_imgs)
 
 
+    def upload_data(self):
+        print('Loading saved data')
+        self.gfa_imgs = np.load('BACKUP_DATA/GFA_IMAGES.npy')
+        self.x_rot_imgs = np.load('BACKUP_DATA/GFA_X_ROT_IMAGES.npy',allow_pickle=True)
+        self.y_rot_imgs = np.load('BACKUP_DATA/GFA_Y_ROT_IMAGES.npy',allow_pickle=True)
+        self.z_rot_imgs = np.load('BACKUP_DATA/GFA_Z_ROT_IMAGES.npy',allow_pickle=True)
 
-        
 
     def display(self, index):
         _slice = self.gfa_imgs.shape[-1] // 2
@@ -143,9 +150,11 @@ class Dataset(NiftiProccesing):
 
 
 
-dataset = Dataset()
+dataset = Dataset(load_subjects=False)
 dataset.apply_augemntation()
 dataset.display(0)
+dataset.upload_data()
+
 
 def genotype_extraction():
     #! wget https://raw.githubusercontent.com/portokalh/skullstrip/master/book_keeping/QCLAB_AD_mice062921.csv
