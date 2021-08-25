@@ -107,7 +107,7 @@ class Dataset(NiftiProccesing):
 
     def apply_augemntation(self, save_data=True):
         #save_data is for testing only: it saves data after the augmentation has been done in case training fails
-        #rotation axes
+        #rotation axes 
         x_rot = (1,0)
         z_rot = (2,0)
         y_rot = (2,1)
