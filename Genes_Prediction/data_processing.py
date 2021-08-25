@@ -74,7 +74,7 @@ class NiftiProccesing(object):
         return imgs, affines, masks ,grad_tables
     
     def fa_extraction(self, imgs, grad_table, mask, subject):
-        print(f'Extracting FA for {subject}')
+        print(f'\tExtracting FA for {subject}')
         csa_model = CsaOdfModel(grad_table, sh_order=6)
         csa_peaks = peaks_from_model(csa_model, imgs, default_sphere,
                              relative_peak_threshold=.25,
@@ -92,7 +92,7 @@ class NiftiProccesing(object):
 
 
 class Dataset(NiftiProccesing):
-    def __init__(self, augmentation_factor=4 ,dir_name='TEST_SUBJECT', subject_list = ['N57709']):
+    def __init__(self, augmentation_factor=5 ,dir_name='TEST_SUBJECT', subject_list = ['N57709']):
         NiftiProccesing.__init__(self, dir_name, subject_list)
         self.types = {'scan' : '_nii4D_RAS.nii.gz', 
                       'binary_mask' : '_dwi_binary_mask.nii.gz', 
@@ -105,8 +105,9 @@ class Dataset(NiftiProccesing):
         self.x_rot_imgs, self.y_rot_imgs, self.z_rot_imgs = [], [], []
 
 
-    def apply_augemntation(self):
-        #rottation axes
+    def apply_augemntation(self, save_data=True):
+        #save_data is for testing only: it saves data after the augmentation has been done in case training fails
+        #rotation axes
         x_rot = (1,0)
         z_rot = (2,0)
         y_rot = (2,1)
@@ -119,6 +120,13 @@ class Dataset(NiftiProccesing):
                 self.x_rot_imgs.append(self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, x_rot, self.subject_list[i]))
                 self.y_rot_imgs.append(self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, y_rot, self.subject_list[i]))
                 self.z_rot_imgs.append(self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, z_rot, self.subject_list[i]))
+            if save_data:
+                print('Saving/Updateing the data for this epoch')
+                np.save('GFA_IMAGES', self.gfa_imgs)
+                np.save('GFA_X_ROT_IMAGES', self.x_rot_imgs)
+                np.save('GFA_Y_ROT_IMAGES', self.y_rot_imgs)
+                np.save('GFA_Z_ROT_IMAGES', self.z_rot_imgs)
+
 
 
         
@@ -126,7 +134,7 @@ class Dataset(NiftiProccesing):
     def display(self, index):
         _slice = self.gfa_imgs.shape[-1] // 2
 
-        fig, axs = plt.subplots(1,4)
+        fig, axs = plt.subplots(1)
         axs[0].imshow(self.gfa_imgs[index,:,:,_slice].T,cmap='gray')
 
         plt.show()
