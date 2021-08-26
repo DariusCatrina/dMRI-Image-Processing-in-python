@@ -4,7 +4,8 @@
 # [x] FA extraction
 # Data augemntation:
 #       [x] X,Y,Z rotation
-#       [] Minimum size reduction
+#       [] Minimum size reduction / Batch normalization
+#       [] Creat single array with the whole data
 #       [] ± Segmentation per Bundle
 # Extra features extraction:
 #       [] Symmetry percentage / Shape Similarity
@@ -29,7 +30,7 @@ from dipy.data import default_sphere
 
 class NiftiProccesing(object):
     def __init__(self, dir_name, subject_list):
-        self.data_file = os.path.abspath(os.path.join("",f'{dir_name}/'))
+        self.data_directory = os.path.abspath(os.path.join("",f'{dir_name}/'))
         self.subject_list = subject_list       
     
     def load_subjects(self, _types):
@@ -43,8 +44,8 @@ class NiftiProccesing(object):
         #reading the scans, binary masks, bvalues and bvectors for every subject
         for i, subject in enumerate(self.subject_list):
             print(f'\tUploading the {subject} subject')
-            subject_fname = os.path.join(self.data_file, subject+_types['scan'])
-            binary_mask_fname = os.path.join(self.data_file, subject+_types['binary_mask'])
+            subject_fname = os.path.join(self.data_directory, subject+_types['scan'])
+            binary_mask_fname = os.path.join(self.data_directory, subject+_types['binary_mask'])
 
             scans, affine, vox_size = load_nifti(subject_fname, return_voxsize=True)
             b0_mask, _ , vox_b0= load_nifti(binary_mask_fname, return_voxsize=True)
@@ -59,8 +60,8 @@ class NiftiProccesing(object):
             masks[i] = b0_mask
 
 
-            bvals_fname = os.path.join(self.data_file, subject+'_bvals_fix.txt')
-            bvecs_fname = os.path.join(self.data_file, subject+'_bvec_fix.txt')
+            bvals_fname = os.path.join(self.data_directory, subject+'_bvals_fix.txt')
+            bvecs_fname = os.path.join(self.data_directory, subject+'_bvec_fix.txt')
 
             bvals, bvecs = np.loadtxt(bvals_fname), np.loadtxt(bvecs_fname)
 
@@ -71,7 +72,7 @@ class NiftiProccesing(object):
             grad_tab = gradient_table(bvals, bvecs)
             grad_tables[i] = grad_tab
         
-        return imgs, affines, masks ,grad_tables
+        return imgs, affines, masks, grad_tables
     
     def fa_extraction(self, imgs, grad_table, mask, subject):
         print(f'\tExtracting FA for {subject}')
@@ -85,7 +86,6 @@ class NiftiProccesing(object):
     
     def rotate_img(self, img, angle, axes, subject):
         #Rotate a 3D image volume for data augmentation...
-        print(f'\tRotation of the {subject} subject on {axes} axes with {angle} degrees')
         from scipy.ndimage.interpolation import rotate
         
         return rotate(input=img, angle=angle, axes=axes)
@@ -104,7 +104,7 @@ class Dataset(NiftiProccesing):
         self.augmentation_factor = augmentation_factor
         self.rot_angle_pass = 360/self.augmentation_factor
         # Each rotation the image will have different shapes
-        self.x_rot_imgs, self.y_rot_imgs, self.z_rot_imgs = np.zeros(5*len(subject_list), dtype=object),  np.zeros(5*len(subject_list), dtype=object),  np.zeros(5*len(subject_list), dtype=object)
+        self.x_rot_imgs, self.y_rot_imgs, self.z_rot_imgs = np.zeros(self.augmentation_factor*len(subject_list), dtype=object),  np.zeros(self.augmentation_factor*len(subject_list), dtype=object),  np.zeros(self.augmentation_factor*len(subject_list), dtype=object)
 
 
     def apply_augemntation(self, save_data=True):
@@ -118,6 +118,7 @@ class Dataset(NiftiProccesing):
         for i in range(len(self.subject_list)):
             self.gfa_imgs[i] = self.fa_extraction(self.imgs[i], self.grad_tables[i], self.masks[i], self.subject_list[i])
             # 4 X rot, 4 Y rot, 4 Z rot
+            print(f'\tRotation of the {self.subject_list[i]} subject')
             for j in range(0, self.augmentation_factor - 1):
                 self.x_rot_imgs[i+j] = self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, x_rot, self.subject_list[i])
                 self.y_rot_imgs[i+j] = self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, y_rot, self.subject_list[i])
