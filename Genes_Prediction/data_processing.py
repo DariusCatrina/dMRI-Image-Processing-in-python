@@ -139,10 +139,23 @@ class Dataset(NiftiProccesing):
 
 
     def display(self, index):
-        _slice = self.gfa_imgs.shape[-1] // 2
+        mid_x = self.gfa_imgs.shape[-1] // 2
+        mid_y = self.gfa_imgs.shape[-3] // 2
+        mid_z = self.gfa_imgs.shape[-2] // 2
 
-        fig, axs = plt.subplots(1)
-        axs[0].imshow(self.gfa_imgs[index,:,:,_slice].T,cmap='gray')
+
+        fig, axs = plt.subplots(2,3)
+        axs[0,0].imshow(self.gfa_imgs[index,:,:,mid_x].T,cmap='gray')
+        axs[0,0].title.set_text('From x perspective')
+        axs[0,1].imshow(self.gfa_imgs[index,:,mid_z,:],cmap='gray')
+        axs[0,1].title.set_text('From z perspective')
+        axs[0,2].imshow(self.gfa_imgs[index,mid_y,:,:],cmap='gray')
+        axs[0,2].title.set_text('From y perspective')
+
+        axs[1,0].imshow(self.x_rot_imgs[index + 2][:,:,mid_x].T,cmap='gray')
+        axs[1,1].imshow(self.z_rot_imgs[index + 2][:,mid_z,:],cmap='gray')
+        axs[1,2].imshow(self.y_rot_imgs[index + 2][mid_y,:,:],cmap='gray')
+
 
         plt.show()
 
@@ -151,10 +164,10 @@ class Dataset(NiftiProccesing):
 
 
 dataset = Dataset(load_subjects=False)
-dataset.apply_augemntation()
-dataset.display(0)
-dataset.upload_data()
+# dataset.apply_augemntation()
 
+dataset.upload_data()
+dataset.display(0)
 
 def genotype_extraction():
     #! wget https://raw.githubusercontent.com/portokalh/skullstrip/master/book_keeping/QCLAB_AD_mice062921.csv
