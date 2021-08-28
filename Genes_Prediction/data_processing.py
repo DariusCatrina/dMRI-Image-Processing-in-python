@@ -216,7 +216,7 @@ if __name__ == '__main__':
     subject_list = df[df.columns[0]].tolist()
 
     #Data
-    dataset = Dataset(load_subjects=False,
+    dataset = Dataset(load_subjects=True,
                       global_path=args.GLOBAL_PATH,
                       augmentation_factor=args.AUGM_FACT, 
                       dir_name=args.SUBJ_DIR,
