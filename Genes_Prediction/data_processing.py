@@ -29,8 +29,11 @@ from dipy.data import default_sphere
 
 
 class NiftiProccesing(object):
-    def __init__(self, dir_name, subject_list):
-        self.data_directory = os.path.abspath(os.path.join("",f'{dir_name}/'))
+    def __init__(self, dir_name, subject_list, global_path):
+        if global_path == True:
+            self.data_directory = dir_name
+        else:
+            self.data_directory = os.path.abspath(os.path.join("",f'{dir_name}/'))
         self.subject_list = subject_list       
     
     def load_subjects(self, _types):
@@ -75,6 +78,7 @@ class NiftiProccesing(object):
         return imgs, affines, masks, grad_tables
     
     def fa_extraction(self, imgs, grad_table, mask, subject):
+        #Extracts FA map for a subject
         print(f'\tExtracting FA for {subject}')
         csa_model = CsaOdfModel(grad_table, sh_order=6)
         csa_peaks = peaks_from_model(csa_model, imgs, default_sphere,
@@ -92,8 +96,8 @@ class NiftiProccesing(object):
 
 
 class Dataset(NiftiProccesing):
-    def __init__(self, augmentation_factor=5 ,dir_name='TEST_SUBJECT', subject_list = ['N57709'], load_subjects=True):
-        NiftiProccesing.__init__(self, dir_name, subject_list)
+    def __init__(self, augmentation_factor=5 , dir_name='TEST_SUBJECT',global_path=False ,subject_list = ['N57709'], load_subjects=True):
+        NiftiProccesing.__init__(self, dir_name, subject_list, global_path)
         self.types = {'scan' : '_nii4D_RAS.nii.gz', 
                       'binary_mask' : '_dwi_binary_mask.nii.gz', 
                       'lables' : '_chass_symmetric3_labels_RAS_lr_ordered.nii.gz'}
@@ -108,7 +112,7 @@ class Dataset(NiftiProccesing):
 
 
     def apply_augemntation(self, save_data=True):
-        #save_data is for testing only: it saves data after the augmentation has been done in case training fails
+        #save_data is for testing only: it saves data after the augmentation has been done in case something fails
         #rotation axes 
         x_rot = (1,0)
         z_rot = (2,0)
@@ -162,15 +166,7 @@ class Dataset(NiftiProccesing):
 
 
 
-
-
-dataset = Dataset(load_subjects=False)
-# dataset.apply_augemntation()
-
-dataset.upload_data()
-dataset.display(0)
-
-def genotype_extraction():
+def genotype_extraction(age_limit, plot=False):
     #! wget https://raw.githubusercontent.com/portokalh/skullstrip/master/book_keeping/QCLAB_AD_mice062921.csv
     df = pd.DataFrame(pd.read_csv('QCLAB_AD_mice062921.csv'))
     #df = df.dropna(axis="columns", how="any")
@@ -178,27 +174,55 @@ def genotype_extraction():
     limit = df.shape[0] - 4
     data_dic = []
 
-    for idx, row in df[['DWI', 'Genotype']].iterrows():
+    for idx, row in df[['DWI', 'Genotype', 'Age_Months']].iterrows():
         if idx >= limit:
             break
         name = row['DWI']
         gene = row['Genotype']
+        
         if name not in ['Blank','Died', 'NaN'] and gene in ['APOE33', 'APOE22', 'APOE44']:
-            dict_ = {'subject':name, 'genotype': gene}
-            data_dic.append(dict_)
+            age =  float(row['Age_Months'])
+            if age <= age_limit:
+                dict_ = {'subject':name, 'genotype': gene, 'age':age}
+                data_dic.append(dict_)
 
     data = pd.DataFrame(data_dic)
     data.to_csv('DATA.csv', index=False)
 
     #pie chart: gene distribution
-    from matplotlib.pyplot import pie, axis, show
-    def f(x):
-        return len(list(x))
-    sums = data.groupby(data["genotype"])['subject'].apply(f)
-    print(sums)
-    axis('equal')
-    pie(sums, labels=sums.index);
-    show()
+    if plot:
+        from matplotlib.pyplot import pie, axis, show
+        def f(x):
+            return len(list(x))
+        sums = data.groupby(data["genotype"])['subject'].apply(f)
+        print(sums)
+        axis('equal')
+        pie(sums, labels=sums.index);
+        show()
 
 
-# genotype_extraction()
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--GLOBAL_PATH', type=bool, default=False, help='If the directory is local or a global path') 
+    parser.add_argument('--SUBJ_DIR', type=str, default='TEST_SUBJECT', help='Directory/Folder location of the subjects') 
+    parser.add_argument('--AUGM_FACT', type=int, default=10, help='Augmentation Factor')
+    parser.add_argument('--AGE_LIMIT', type=int, default=21, help='Age limit of the subjects')
+    args = parser.parse_args()
+
+    #Subject list extraction
+    genotype_extraction(age_limit=args.AGE_LIMIT, plot=False)
+    df  = pd.DataFrame(pd.read_csv('DATA.csv'))
+    subject_list = df[df.columns[0]].tolist()
+
+    #Data
+    dataset = Dataset(load_subjects=False,
+                      global_path=args.GLOBAL_PATH,
+                      augmentation_factor=args.AUGM_FACT, 
+                      dir_name=args.SUBJ_DIR,
+                      subject_list=subject_list)
+
+
+    dataset.apply_augemntation()
+    #dataset.upload_data()
+    #dataset.display(0)
