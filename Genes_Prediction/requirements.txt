@@ -1,0 +1,4 @@
+dipy==1.4.1
+matplotlib==3.3.1
+pandas==1.1.0
+numpy==1.18.5
