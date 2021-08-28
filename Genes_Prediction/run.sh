@@ -1,5 +1,6 @@
 git clone https://github.com/DariusCatrina/dMRI-Image-Processing-in-python.git
 cd dMRI-Image-Processing-in-python/Genes_Prediction
+mkdir BACKUP_DATA
 pip install -r requirements.txt
 # Some notations:
 # 
