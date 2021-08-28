@@ -1,5 +1,5 @@
 git clone https://github.com/DariusCatrina/dMRI-Image-Processing-in-python.git
-cd dMRI-Image-Processing-in-python/Gene_Prediciton
+cd dMRI-Image-Processing-in-python/Genes_Prediction
 pip install -r requirements.txt
 # Some notations:
 # 
