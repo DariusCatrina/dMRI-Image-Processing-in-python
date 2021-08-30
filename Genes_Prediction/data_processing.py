@@ -7,6 +7,9 @@
 #       [] Minimum size reduction / Batch normalization
 #       [] Creat single array with the whole data
 #       [] ± Segmentation per Bundle
+# Streamlines:
+#       [x] Streamline extraction
+#       [] Set constant number of points
 # Extra features extraction:
 #       [] Symmetry percentage / Shape Similarity
 #       [] Left and Right length 
