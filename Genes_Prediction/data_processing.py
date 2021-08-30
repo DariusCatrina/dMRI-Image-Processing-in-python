@@ -25,7 +25,10 @@ from dipy.reconst.shm import CsaOdfModel
 from dipy.segment.mask import median_otsu
 from dipy.direction import peaks_from_model
 from dipy.data import default_sphere
-
+from dipy.tracking.stopping_criterion import ThresholdStoppingCriterion
+from dipy.tracking import utils
+from dipy.tracking.local_tracking import LocalTracking
+from dipy.tracking.streamline import Streamlines
 
 
 class NiftiProccesing(object):
@@ -86,7 +89,17 @@ class NiftiProccesing(object):
                              min_separation_angle=25,
                              mask=mask)
 
-        return csa_peaks.gfa
+        return csa_peaks
+    
+    def streamlines_extraction(self, fa, b0_masks, affine, csa_peaks, subject,ratio=None):
+        print(f'\tExtracting streamlines for {subject}')
+        stopping_crit = ThresholdStoppingCriterion(fa, 0.25)
+        seeds = utils.seeds_from_mask(b0_masks, affine, density=1)
+
+        streamline_generator = LocalTracking(csa_peaks, stopping_crit, seeds,
+                                     affine=affine, step_size=0.1)
+
+        return Streamlines(streamline_generator)
     
     def rotate_img(self, img, angle, axes, subject):
         #Rotate a 3D image volume for data augmentation...
@@ -105,11 +118,27 @@ class Dataset(NiftiProccesing):
         if load_subjects:
             self.imgs, self.affines, self.masks, self.grad_tables = self.load_subjects(_types=self.types)
         self.gfa_imgs = np.zeros((len(subject_list), 128,210,128))
+        self.csa_peaks = np.zeros(len(subject_list), dtype=object)
+        self.streamlines = np.zeros(len(subject_list), dtype=object)
         self.augmentation_factor = augmentation_factor
         self.rot_angle_pass = 360/self.augmentation_factor
         # Each rotation the image will have different shapes
         self.x_rot_imgs, self.y_rot_imgs, self.z_rot_imgs = np.zeros(self.augmentation_factor*len(subject_list), dtype=object),  np.zeros(self.augmentation_factor*len(subject_list), dtype=object),  np.zeros(self.augmentation_factor*len(subject_list), dtype=object)
 
+    def populate_fa(self, save_data):
+        print('FA maps generation...')
+        for i in range(len(self.subject_list)):
+            self.csa_peaks[i] = self.fa_extraction(self.imgs[i], self.grad_tables[i], self.masks[i], self.subject_list[i])
+            self.gfa_imgs[i] = self.csa_peaks[i].gfa
+            if save_data:
+                np.save('BACKUP_DATA/GFA_IMAGES', self.gfa_imgs)
+
+    def populate_streamlines(self, save_data=True):
+        print('Streamline generation...')
+        for i in range(len(self.subject_list)):
+            self.streamlines[i] = self.streamlines_extraction(self.gfa_imgs[i],self.masks[i], self.affines[i],self.csa_peaks[i],self.subject_list[i])
+            if save_data:
+                np.save('BACKUP_DATA/STREAMLINES', self.streamlines)
 
     def apply_augemntation(self, save_data=True):
         #save_data is for testing only: it saves data after the augmentation has been done in case something fails
@@ -120,28 +149,27 @@ class Dataset(NiftiProccesing):
 
         print('Data augmentation...')
         for i in range(len(self.subject_list)):
-            self.gfa_imgs[i] = self.fa_extraction(self.imgs[i], self.grad_tables[i], self.masks[i], self.subject_list[i])
             # 4 X rot, 4 Y rot, 4 Z rot
             print(f'\tRotation of the {self.subject_list[i]} subject')
             for j in range(0, self.augmentation_factor - 1):
                 self.x_rot_imgs[i+j] = self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, x_rot, self.subject_list[i])
                 self.y_rot_imgs[i+j] = self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, y_rot, self.subject_list[i])
                 self.z_rot_imgs[i+j] = self.rotate_img(self.gfa_imgs[i], (j + 1) * self.rot_angle_pass, z_rot, self.subject_list[i])
-            if save_data:
-                print(f'Saving/Updating the data for the {i}th epoch')
-                np.save('BACKUP_DATA/GFA_IMAGES', self.gfa_imgs)
+            if save_data:                
                 np.save('BACKUP_DATA/GFA_X_ROT_IMAGES', self.x_rot_imgs)
                 np.save('BACKUP_DATA/GFA_Y_ROT_IMAGES', self.y_rot_imgs)
                 np.save('BACKUP_DATA/GFA_Z_ROT_IMAGES', self.z_rot_imgs)
 
-
-    def upload_data(self):
-        print('Loading saved data')
+    def upload_imgs(self):
+        print('Loading the images')
         self.gfa_imgs = np.load('BACKUP_DATA/GFA_IMAGES.npy')
         self.x_rot_imgs = np.load('BACKUP_DATA/GFA_X_ROT_IMAGES.npy',allow_pickle=True)
         self.y_rot_imgs = np.load('BACKUP_DATA/GFA_Y_ROT_IMAGES.npy',allow_pickle=True)
         self.z_rot_imgs = np.load('BACKUP_DATA/GFA_Z_ROT_IMAGES.npy',allow_pickle=True)
 
+    def upload_streamlines(self):
+        print('Loading the streamlines')
+        self.streamlines = np.load('BACKUP_DATA/STREAMLINES',allow_pickle=True)
 
     def display(self, index):
         mid_x = self.gfa_imgs.shape[-1] // 2
@@ -211,9 +239,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     #Subject list extraction
-    genotype_extraction(age_limit=args.AGE_LIMIT, plot=False)
-    df  = pd.DataFrame(pd.read_csv('DATA.csv'))
-    subject_list = df[df.columns[0]].tolist()
+    # genotype_extraction(age_limit=args.AGE_LIMIT, plot=False)
+    # df  = pd.DataFrame(pd.read_csv('DATA.csv'))
+    # subject_list = df[df.columns[0]].tolist()
+    subject_list = ['N57709']
 
     #Data
     dataset = Dataset(load_subjects=True,
@@ -222,7 +251,7 @@ if __name__ == '__main__':
                       dir_name=args.SUBJ_DIR,
                       subject_list=subject_list)
 
-
+    dataset.populate_fa(save_data=True)
+    dataset.populate_streamlines(save_data=True)
     dataset.apply_augemntation()
-    #dataset.upload_data()
-    #dataset.display(0)
+    dataset.display(0)
