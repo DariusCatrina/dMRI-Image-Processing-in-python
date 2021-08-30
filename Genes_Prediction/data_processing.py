@@ -32,6 +32,7 @@ from dipy.tracking.stopping_criterion import ThresholdStoppingCriterion
 from dipy.tracking import utils
 from dipy.tracking.local_tracking import LocalTracking
 from dipy.tracking.streamline import Streamlines
+from dipy.tracking.streamline import set_number_of_points
 
 
 class NiftiProccesing(object):
@@ -102,13 +103,22 @@ class NiftiProccesing(object):
         streamline_generator = LocalTracking(csa_peaks, stopping_crit, seeds,
                                      affine=affine, step_size=0.1)
 
-        return Streamlines(streamline_generator)
+        return set_number_of_points(Streamlines(streamline_generator), 100)
     
     def rotate_img(self, img, angle, axes, subject):
         #Rotate a 3D image volume for data augmentation...
         from scipy.ndimage.interpolation import rotate
         
         return rotate(input=img, angle=angle, axes=axes)
+
+    def fa_mapping(self, streamlines, fa, no_of_points):
+        fa_points = np.zeros((len(streamlines), no_of_points), dtype=np.int64)
+        for i, streamline in enumerate(streamlines):
+            for ii, (x,y,z) in enumerate(streamline):
+                fa_points[i][ii] = fa[int(x),int(y),int(z)]
+
+        return fa_points
+
 
 
 class Dataset(NiftiProccesing):
@@ -123,6 +133,7 @@ class Dataset(NiftiProccesing):
         self.gfa_imgs = np.zeros((len(subject_list), 128,210,128))
         self.csa_peaks = np.zeros(len(subject_list), dtype=object)
         self.streamlines = np.zeros(len(subject_list), dtype=object)
+        self.fa_streamlines = np.zeros(len(subject_list), dtype=object)
         self.augmentation_factor = augmentation_factor
         self.rot_angle_pass = 360/self.augmentation_factor
         # Each rotation the image will have different shapes
@@ -140,6 +151,7 @@ class Dataset(NiftiProccesing):
         print('Streamline generation...')
         for i in range(len(self.subject_list)):
             self.streamlines[i] = self.streamlines_extraction(self.gfa_imgs[i],self.masks[i], self.affines[i],self.csa_peaks[i],self.subject_list[i])
+            self.fa_streamlines[i] = self.fa_mapping(self.streamlines[i], self.gfa_imgs[i], 100)
             if save_data:
                 np.save('BACKUP_DATA/STREAMLINES', self.streamlines)
 
