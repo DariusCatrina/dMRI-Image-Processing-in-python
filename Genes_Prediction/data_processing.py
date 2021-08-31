@@ -7,7 +7,7 @@
 #       [x] X,Y,Z rotation (saved to file=BACKUP_DATA/GFA_X/Y/Z_ROT_IMAGES.npy)
 #       [] Minimum size reduction / Batch normalization
 #       [] Creat single array with the whole data
-#       [] ± Segmentation per Bundle
+#       [] ± Segmentation per Bundle (divide all the streamlines in bundles for multiple inputs for CNN)
 # Streamlines:
 #       [x] Streamline extraction (saved to file=BACKUP_DATA/STREAMLINES.npy)
 #       [] Set constant number of points
