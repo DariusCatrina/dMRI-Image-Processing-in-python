@@ -1,18 +1,19 @@
-# Data retrieval/loading from:
-#       [x] files
+# Data(scans, b-vects,  b-values, b0_masks) retrieval/loading from:
+#       [x] files (from path/directory provided)
 #       [] drive 
-# [x] FA extraction
+# [x] FA extraction (saved to file=BACKUP_DATA/GFA_IMAGES.npy)
+# [x] Connectome generation (saved to file=BACKUP_DATA/STREAMLINES.npy)
 # Data augemntation:
-#       [x] X,Y,Z rotation
+#       [x] X,Y,Z rotation (saved to file=BACKUP_DATA/GFA_X/Y/Z_ROT_IMAGES.npy)
 #       [] Minimum size reduction / Batch normalization
 #       [] Creat single array with the whole data
 #       [] ± Segmentation per Bundle
 # Streamlines:
-#       [x] Streamline extraction
+#       [x] Streamline extraction (saved to file=BACKUP_DATA/STREAMLINES.npy)
 #       [] Set constant number of points
 # Extra features extraction:
-#       [] Symmetry percentage / Shape Similarity
-#       [] Left and Right length 
+#       [] Symmetry percentage / Shape Similarity (TODO)
+#       [] Left and Right length (TODO)
 # Data Parsing in Training, Validation, Testing sets
 
 import os
