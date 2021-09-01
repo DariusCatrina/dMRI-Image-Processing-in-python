@@ -10,7 +10,7 @@
 #       [] ± Segmentation per Bundle (divide all the streamlines in bundles for multiple inputs for CNN)
 # Streamlines:
 #       [x] Streamline extraction (saved to file=BACKUP_DATA/STREAMLINES.npy)
-#       [] Set constant number of points
+#       [x] Set constant number of points
 # Extra features extraction:
 #       [] Symmetry percentage / Shape Similarity (TODO)
 #       [] Left and Right length (TODO)
@@ -96,7 +96,7 @@ class NiftiProccesing(object):
 
         return csa_peaks
     
-    def streamlines_extraction(self, fa, b0_masks, affine, csa_peaks, subject,ratio=None):
+    def streamlines_extraction(self, fa, b0_masks, affine, csa_peaks, subject,no_points,ratio=None):
         print(f'\tExtracting streamlines for {subject}')
         stopping_crit = ThresholdStoppingCriterion(fa, 0.25)
         seeds = utils.seeds_from_mask(b0_masks, affine, density=1)
@@ -104,7 +104,7 @@ class NiftiProccesing(object):
         streamline_generator = LocalTracking(csa_peaks, stopping_crit, seeds,
                                      affine=affine, step_size=0.1)
 
-        return set_number_of_points(Streamlines(streamline_generator), 100)
+        return set_number_of_points(Streamlines(streamline_generator), no_points)
     
     def rotate_img(self, img, angle, axes, subject):
         #Rotate a 3D image volume for data augmentation...
@@ -151,8 +151,8 @@ class Dataset(NiftiProccesing):
     def populate_streamlines(self, save_data=True):
         print('Streamline generation...')
         for i in range(len(self.subject_list)):
-            self.streamlines[i] = self.streamlines_extraction(self.gfa_imgs[i],self.masks[i], self.affines[i],self.csa_peaks[i],self.subject_list[i])
-            self.fa_streamlines[i] = self.fa_mapping(self.streamlines[i], self.gfa_imgs[i], 100)
+            self.streamlines[i] = self.streamlines_extraction(self.gfa_imgs[i],self.masks[i], self.affines[i],self.csa_peaks[i],self.subject_list[i], no_points=100)
+            self.fa_streamlines[i] = self.fa_mapping(self.streamlines[i], self.gfa_imgs[i], no_of_points=100)
             if save_data:
                 np.save('BACKUP_DATA/STREAMLINES', self.streamlines)
 
