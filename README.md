@@ -18,12 +18,14 @@ Total length of the right streamlines: 146418.802[mm]
 Total length of the left streamlines: 120262.568 [mm]
 
 Graphs preview for the AST left and right bundle
+
 FA along bundles  |  FA histogram | Length Histogram
 -------------------------|:-------------------------:|:-------------------------:
 ![](Symmetry/PLOTS/MEAN_FA_PROJECTIONS/AST.png) | ![](Symmetry/PLOTS/HISTOGRAMS/AST.png)| ![](Symmetry/PLOTS/LENGTH/AST.png)
 
 ## FA values mapped on the streamlines that pass through Calcarine Sulcus ROI
 3D demo of the FA values mapped on the streamlines that pass through Calcarine Sulcus ROI.
+
 Top perspective    |  Bottom perspective
 -------------------------|:-------------------------:
 ![](FA_to_Streamlines/fa_mapping_to_streamlines_top.png) | ![](FA_to_Streamlines/fa_mapping_to_streamlines_bot.png)
