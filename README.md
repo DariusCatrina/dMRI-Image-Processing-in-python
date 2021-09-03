@@ -2,7 +2,7 @@
 
 This repository contains notes/tutorials using dipy library, in python, for d-MRI image processing.
 
-## Genes prediciton
+## Genes Prediction
 Using 3D d-MRI scans and a convolutional neural network / Streamlines vectors coordinates with a linear model to predict the APOE genes. 
 
 Code coming soon ... 
