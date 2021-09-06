@@ -17,12 +17,6 @@ Shape similarity score: 1.0
 Total length of the right streamlines: 146418.802[mm]
 Total length of the left streamlines: 120262.568 [mm]
 
-Graphs preview for the AST left and right bundle
-
-FA along bundles  |  FA histogram | Length Histogram
--------------------------|:-------------------------:|:-------------------------:
-![](Symmetry/PLOTS/MEAN_FA_PROJECTIONS/AST.png) | ![](Symmetry/PLOTS/HISTOGRAMS/AST.png)| ![](Symmetry/PLOTS/LENGTH/AST.png)
-
 ## FA values mapped on the streamlines that pass through Calcarine Sulcus ROI
 3D demo of the FA values mapped on the streamlines that pass through Calcarine Sulcus ROI.
 
